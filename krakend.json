@@ -1,0 +1,200 @@
+{
+    "$schema": "https://www.krakend.io/schema/v3.json",
+    "version": 3,
+    "name": "API Gateway",
+    "plugin": {
+        "pattern": ".so",
+        "folder": "./plugins/"
+    },
+    "extra_config": {
+        "router": {
+            "forwarded_by_client_ip": true,
+            "return_error_msg": true
+        },
+        "security/cors": {
+            "allow_origins": [
+                "*"
+            ],
+            "expose_headers": [
+                "Content-Length",
+                "Content-type"
+            ],
+            "max_age": "12h",
+            "allow_methods": [
+                "GET",
+                "HEAD",
+                "PUT",
+                "POST"
+            ],
+            "allow_headers": [
+                "x-auth",
+                "api_id",
+                "client_id",
+                "authorization",
+                "Accept-Encoding",
+                "content-type"
+            ],
+            "allow_credentials": true
+        },
+        "security/http": {
+            "allowed_hosts": [],
+            "ssl_proxy_headers": {},
+            "browser_xss_filter": true
+        },
+        "plugin/http-server": {
+            "name": [
+                "krakend-private-authorizer"
+            ],
+            "krakend-private-authorizer": {
+                "auth_url": "{{ env "AUTHORIZER_SERVICE_URL" }}/v1/token/access",
+                "token_header": "{{ env "TOKEN_HEADER" }}",
+                "api_id_header": "api_id",
+                "client_id_header": "client_id",
+                "default_error_message": "Service unavailable",
+                "params": [
+                    "api_id_header",
+                    "client_id_header",
+                    "token_header"
+                ],
+                "modify_errors": true,
+                "public_flag": "{{ env "PUBLIC_FLAG" }}",
+                "error_flag": "{{ env "ERROR_FLAG" }}"
+            }
+        },
+        "github_com/devopsfaith/krakend-gologging": {
+            "level": "DEBUG",
+            "prefix": "[KRAKEND]",
+            "syslog": true,
+            "stdout": true
+        }
+    },
+    "timeout": "20000ms",
+    "cache_ttl": "300s",
+    "output_encoding": "json",
+    "port": 8001,
+    "read_header_timeout": "1s",
+    "endpoints": [
+        {
+            "endpoint": "/health",
+            "extra_config": {
+                "proxy": {
+                    "static": {
+                        "data": {
+                            "status": "ok"
+                        },
+                        "strategy": "always"
+                    }
+                }
+            },
+            "backend": [
+                {
+                    "url_pattern": "/__health",
+                    "host": [
+                        "http://localhost:{{ env "KRAKEND_PORT" }}"
+                    ]
+                }
+            ]
+        },
+        {
+            "endpoint": "/clients",
+            "method": "GET",
+            "output_encoding": "json",
+            "input_headers": [
+                "Authorization",
+                "Content-Type",
+                "{{ env "TOKEN_HEADER" }}",
+                "api_id",
+                "client_id",
+                "x-request-id",
+                "x-origin",
+                "Accept-Encoding"
+            ],
+            "backend": [
+                {
+                    "url_pattern": "/v1/example",
+                    "encoding": "json",
+                    "method": "GET",
+                    "host": [
+                        "{{ env "API_EXAMPLE_URL" }}"
+                    ],
+                    "extra_config": {
+                        "backend/http": {
+                            "return_error_details": "{{ env "ERROR_FLAG" }}"
+                        },
+                        "qos/http-cache": {
+                            "shared": false
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "endpoint": "/example/{id}",
+            "method": "GET",
+            "output_encoding": "json",
+            "input_headers": [
+                "Authorization",
+                "Content-Type",
+                "x-auth",
+                "api_id",
+                "client_id",
+                "x-request-id",
+                "x-remote-ip",
+                "x-origin",
+                "Accept-Encoding"
+            ],
+            "backend": [
+                {
+                    "url_pattern": "/v1/example/{id}",
+                    "encoding": "json",
+                    "method": "GET",
+                    "host": [
+                        "{{ env "API_EXAMPLE_URL" }}"
+                    ],
+                    "extra_config": {
+                        "backend/http": {
+                            "return_error_details": "{{ env "ERROR_FLAG" }}"
+                        },
+                        "qos/http-cache": {
+                            "shared": false
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "endpoint": "/public/example/{id}",
+            "method": "GET",
+            "output_encoding": "json",
+            "input_headers": [
+                "Authorization",
+                "Content-Type",
+                "x-auth",
+                "api_id",
+                "client_id",
+                "x-request-id",
+                "x-remote-ip",
+                "x-origin",
+                "Accept-Encoding"
+            ],
+            "backend": [
+                {
+                    "url_pattern": "/v1/example/{id}",
+                    "encoding": "json",
+                    "method": "GET",
+                    "host": [
+                        "{{ env "API_EXAMPLE_URL" }}"
+                    ],
+                    "extra_config": {
+                        "backend/http": {
+                            "return_error_details": "{{ env "ERROR_FLAG" }}"
+                        },
+                        "qos/http-cache": {
+                            "shared": false
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}
